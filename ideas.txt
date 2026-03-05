@@ -1,0 +1,17 @@
+1.) Add Storage Impact Dashboard (Done)
+2.) Redundancy Score (Done)
+3.) Duplicate Clustering Instead of Pair Listing (Done)
+4.) Smart Recommendation Engine (Done)
+5.) Explainable AI Panel
+6.) Smart Folder Risk Prediction
+7.) Image Duplicate Detection
+8.) Cross-Format Content Migration Suggestion
+9.) Safe Delete + Undo (Product Readiness)
+11.) External Drive Mode
+
+1.) TF-IDF weighting
+2.) Word embeddings (Sentence Transformers)
+3.) Pretrained semantic model
+4.) Image perceptual hashing via ML
+5.) Lightweight clustering algorithm like DBSCAN
+6.) Keyword importance scoring
