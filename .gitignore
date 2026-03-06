@@ -1,4 +1,13 @@
-venv/
+# Environment variables — never commit this
+.env
+
+# Python
 __pycache__/
 *.pyc
-.env
+*.pyo
+venv/
+.venv/
+
+# Model cache
+*.pt
+*.bin
