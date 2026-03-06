@@ -32,3 +32,14 @@ The system uses a weighted scoring model to suggest the best file to **KEEP** ba
 - **UI:** Tkinter
 - **AI/ML Logic:** Scikit-learn, ImageHash, Pillow
 - **Parsers:** python-docx, openpyxl, python-pptx
+
+
+## 🏗 Iteration 2: Advanced Storage Intelligence (Current)
+### New Features
+* **Image Similarity Engine:** Added `ImageHash` integration using perceptual hashing (pHash) to detect visually similar images regardless of resolution or format.
+* **PDF Intelligence:** Integrated `PyPDF2` to extract and analyze text from PDF documents for semantic matching.
+* **Advanced NLP:** Implemented `scikit-learn` TF-IDF Vectorization with an N-gram range (1,2) for higher accuracy in document similarity.
+* **Smart Decision Logic:** Enhanced recommendation engine with weighted scoring for "Final" versions vs. "Backup/Copy" indicators.
+
+### Updated Tech Stack
+* **New Dependencies:** `scikit-learn`, `ImageHash`, `PyPDF2`, `Pillow`.
