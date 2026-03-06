@@ -1,86 +1,146 @@
-🧠 AI Smart Duplicate File Finder
+# AI Smart Duplicate File Finder 🚀
 
-SanDisk Hackathon | Track 1: AI / ML
+**SanDisk Hackathon | Track 1: AI / ML**
 
-An intelligent, multi-modal storage optimization system that goes beyond bit-for-bit matching. It identifies exact, near, and semantic duplicates across text, images, and audio using a sophisticated four-tier AI pipeline.
-🏗 Iteration 4: Multi-Modal Acoustic Intelligence (Current)
-🆕 New: Advanced Audio Fingerprinting
+An intelligent storage optimization system that detects exact and semantic duplicates across various file formats — and safely removes them in one click.
 
-    Acoustic DNA (Chromaprint): Integrated pyacoustid to generate robust audio fingerprints. It identifies identical recordings even across different bitrates or formats (e.g., comparing a .wav master to a mobile-compressed .mp3).
+---
 
-    Enhanced MFCC Fallback: Utilizes librosa to extract Mel-Frequency Cepstral Coefficients (MFCCs), Chroma STFT, and Spectral Centroids. This allows the AI to "hear" similarities in texture and timbre even if the files aren't binary matches.
+## 🏗 Iteration 1: Core Prototype
 
-    Dual-Metric Similarity: Implements a hybrid scoring system using Bit-Error Rate (BER) for fingerprints and Rescaled Cosine Similarity for spectral feature vectors.
+### Core Intelligence
 
-🤖 Deep AI & Neural Vision
+- **Exact Duplicate Detection:** SHA-256 binary hashing.
+- **Semantic Similarity:** Cosine similarity for `.docx`, `.pptx`, `.xlsx`, and `.txt`.
+- **Image Intelligence:** Perceptual hashing (pHash) with Hamming distance for visual similarity.
+- **Smart Clustering:** Graph-based clustering using connected components to group related files.
 
-    Sentence Transformers (all-MiniLM-L6-v2): Encodes documents into semantic vector space, detecting duplicates even when the wording is significantly altered.
+### 🧠 The Recommendation Engine
 
-    FAISS Vector Indexing: Powered by Facebook AI Similarity Search for lightning-fast approximate nearest-neighbor lookups.
+The system uses a weighted scoring model to suggest the best file to **KEEP** based on:
 
-    CLIP Neural Vision (ViT-B/32): OpenAI’s vision model identifies visually duplicate images across different crops, resolutions, or color profiles.
+- **File Metadata:** Size and last modified timestamps.
+- **Filename Signals:** Keywords like "final", "backup", or "copy".
 
-🛡️ Enterprise-Grade UX & Safety
+### 📊 Storage Analytics
 
-    One-Click Safe Delete: Uses send2trash to ensure all deletions are non-destructive (moved to Recycle Bin).
+- Redundancy level calculation.
+- Potential storage savings (SSD optimization metric).
+- Risk classification (Low / Moderate / High).
 
-    Live Analytics Dashboard: Real-time stat cards for Files Scanned, Space Wasted, and Redundancy Risk Classification.
+### 🛠 Tech Stack
 
-    Confidence Badges: Every cluster is labeled with a 🎯 Similarity Score (e.g., 92% Match).
+- **Language:** Python
+- **UI:** Tkinter
+- **AI/ML Logic:** Scikit-learn, ImageHash, Pillow
+- **Parsers:** python-docx, openpyxl, python-pptx
 
-    File Preview Suite: Instant side-panel previews for image thumbnails, text snippets, and audio metadata.
+---
 
-🚀 Project Evolution
-Iteration 3: Full AI/ML Pipeline + Complete UX
+## 🏗 Iteration 2: Advanced Storage Intelligence
 
-    Neural Integration: Sentence Transformers and FAISS added for semantic document clustering.
+### New Features
 
-    Vision AI: Implementation of CLIP for cross-modal image similarity.
+- **Image Similarity Engine:** Added `ImageHash` integration using perceptual hashing (pHash) to detect visually similar images regardless of resolution or format.
+- **PDF Intelligence:** Integrated `PyPDF2` to extract and analyze text from PDF documents for semantic matching.
+- **Advanced NLP:** Implemented `scikit-learn` TF-IDF Vectorization with an N-gram range (1, 2) for higher accuracy in document similarity.
+- **Smart Decision Logic:** Enhanced recommendation engine with weighted scoring for "Final" versions vs. "Backup/Copy" indicators.
 
-    UX Overhaul: Added the Similarity Threshold Slider, Stage Progress Labels, and Auto-categorized clusters.
+### Updated Tech Stack
 
-Iteration 2: Advanced Storage Intelligence
+- **New Dependencies:** `scikit-learn`, `ImageHash`, `PyPDF2`, `Pillow`
 
-    Multi-Format Extraction: Added PyPDF2, python-docx, and openpyxl to "read" inside various file types.
+---
 
-    Advanced NLP: Implemented scikit-learn TF-IDF Vectorization with an N-gram range (1, 2).
+## 🏗 Iteration 3: Full AI/ML Pipeline + Complete UX
 
-    Extended Images: Integrated ImageHash for perceptual hashing (pHash).
+### New Features
 
-Iteration 1: Prototype Foundation
+#### 🤖 Deep AI Mode
+- **Sentence Transformers (all-MiniLM-L6-v2):** Encodes documents into semantic vector embeddings to detect content duplicates even when phrasing differs entirely.
+- **FAISS Vector Index:** Near-instant approximate nearest-neighbour search across thousands of document embeddings.
+- **CLIP Neural Vision (ViT-B/32):** OpenAI's vision model encodes images into semantic space — finds visually duplicate images even across crops, colour changes, or resolutions.
+- **CLIP + pHash Fusion:** Combines neural and perceptual scores for a more robust image similarity decision.
 
-    Exact Matching: Cryptographic SHA-256 binary hashing.
+#### 🎵 Audio Duplicate Detection
+- **MFCC Fingerprinting via `librosa`:** Extracts Mel-Frequency Cepstral Coefficients from audio files and computes cosine similarity to detect duplicate tracks across `.mp3`, `.wav`, `.flac`, `.ogg`, `.m4a` — even across bitrate differences.
 
-    Recommendation Engine: Initial weighted scoring model based on file size, timestamps, and naming signals (e.g., "final" vs "copy").
+#### 🗑️ One-Click Safe Deletion
+- Checkboxes on every detected duplicate file in the results.
+- "Delete Selected" button moves files to the **Recycle Bin** via `send2trash` — no permanent data loss.
+- Exact-duplicate extras are pre-ticked automatically.
 
-    UI Foundation: Basic Tkinter-based desktop interface.
+#### 📊 Scan Summary Dashboard
+- Live stat cards rendered after every scan: **Files Scanned**, **Duplicates Found**, **Space Wasted**, **Exact Groups**, **Near Clusters**.
 
-🛠 Tech Stack
+#### 💾 Export Report
+- Save results as a `.txt` human-readable report or a `.csv` spreadsheet with full metadata (file path, size, modified date, similarity reason, recommended action).
 
-    Acoustic AI: librosa, pyacoustid, soundfile
+#### 🖼️ File Preview Panel
+- Click any file in the results to see: image thumbnail, document text snippet, or file metadata (size, modified, type) in a live side panel.
 
-    Neural Vision: openai-clip, torch, torchvision, ImageHash
+#### 🎚️ Similarity Threshold Slider
+- Tune detection sensitivity live from **0.50 → 1.00** before running a scan — balance recall vs. precision for any use case.
 
-    Deep NLP: sentence-transformers, faiss-cpu, scikit-learn
+#### 🏷️ Confidence Score Badges
+- Every cluster now displays a `🎯 87% similar` badge so users understand *why* files were flagged.
 
-    File Parsers: PyPDF2, python-docx, openpyxl, python-pptx
+#### 📂 Auto-Categorised Clusters
+- Results are automatically labelled by file category: 🖼️ Images / 📝 Documents / 🎵 Audio / 📄 PDF.
 
-    UI/Safety: tkinter, send2trash, Pillow
+#### ⚙️ Stage Progress Labels
+- Real-time stage indicator shows which pipeline step is active: `📂 Scanning → 🔐 Hashing → 📝 Text AI → 🖼️ Image AI → 🎵 Audio AI → 🔗 Clustering`.
 
-📦 Getting Started
+---
 
-    Install Dependencies:
-    Bash
+## 🏗 Iteration 4: Multi-Modal Acoustic Intelligence (Current Version)
 
-    pip install -r requirements.txt
+### 🆕 New: Advanced Audio Fingerprinting
 
-    Note: Audio fingerprinting requires the fpcalc binary installed on your system PATH.
+- **Acoustic DNA (Chromaprint):** Integrated `pyacoustid` for robust audio fingerprinting. The system can now identify the same song/recording even if one is a high-quality `.wav` and the other is a low-bitrate `.mp3`.
+- **Enhanced MFCC Fallback:** Uses `librosa` to extract Mel-Frequency Cepstral Coefficients, Chroma STFT, and Beat Tracking for a secondary "texture-based" audio comparison.
+- **Dual-Metric Similarity:** Combines Bit-Error Rate (BER) for fingerprints and Rescaled Cosine Similarity for spectral features.
+- **Format-Agnostic Audio Detection:** Seamlessly compares across `.mp3`, `.wav`, `.flac`, `.ogg`, `.m4a`, `.aac`, and `.wma` — identifying the same audio content regardless of container or compression.
 
-    Run the Application:
-    Bash
+### 🔧 Enhanced Neural Pipeline
 
-    python desktop_app.py
+- **CLIP Vision Refinement:** Fine-tuned similarity fusion between CLIP embeddings and perceptual hashing for more accurate near-duplicate image detection.
+- **FAISS Index Optimization:** Improved vector search performance for large document collections with automatic index rebuilding.
 
-🎯 Hackathon Pitch
+### 🛡️ Enterprise Safety & UX Polish
 
-    "Storage is cheap, but finding what's wasting it is hard. Our tool provides Acoustic, Visual, and Semantic Intelligence to identify duplicate content regardless of file format. It is the intelligent decision-making layer SanDisk users need to optimize high-capacity drives with total safety and AI precision."
+- **Safe Delete Confirmation:** Added confirmation dialog with storage savings preview before moving files to Recycle Bin via `send2trash`.
+- **Audio Metadata Preview:** Expanded preview panel to display audio duration, bitrate, sample rate, and channels for music files.
+- **Confidence Score Enhancement:** Badges now show dual metrics for audio files (🎵 92% Fingerprint + 87% Spectral).
+- **Performance Optimizations:** Lazy loading for neural models and improved memory management during large scans.
+
+---
+
+## 🚀 Evolution History
+
+| Iteration | Key Focus | Core Technologies |
+|-----------|-----------|-------------------|
+| **v1** | Foundation | SHA-256 Hashing, Basic Tkinter UI |
+| **v2** | Multi-Format | PDF/Office Parsing, TF-IDF Text Similarity |
+| **v3** | Deep AI | CLIP Vision, Sentence Transformers, FAISS |
+| **v4** | **Acoustic AI** | **Chromaprint, Librosa MFCC, Dual-Metric Audio, Safe-Delete Logic** |
+
+---
+
+## 🛠 Tech Stack
+
+| Category | Libraries |
+|----------|-----------|
+| **AI/ML** | `scikit-learn`, `sentence-transformers`, `faiss-cpu`, `torch`, `openai-clip` |
+| **Audio Intelligence** | `librosa`, `pyacoustid` (Chromaprint), `soundfile` |
+| **Computer Vision** | `Pillow`, `imagehash`, `torchvision` |
+| **Document Parsing** | `PyPDF2`, `python-docx`, `openpyxl`, `python-pptx` |
+| **UI & Safety** | `tkinter`, `send2trash` |
+
+---
+
+## ▶️ Getting Started
+
+```bash
+pip install -r requirements.txt
+python desktop_app.py
