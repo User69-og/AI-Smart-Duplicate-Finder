@@ -16,9 +16,14 @@ torch>=2.2.0
 torchvision>=0.17.0
 openai-clip @ git+https://github.com/openai/CLIP.git
 
-# ─── Audio Fingerprinting (NEW) ──────────────────────────────────
+# ─── Audio Fingerprinting ────────────────────────────────────────
 librosa>=0.10.1
 soundfile>=0.12.1
+pyacoustid>=1.3.0           # Chromaprint Python bindings for accurate audio fingerprinting
+# NOTE: also install the fpcalc binary:
+#   Windows  → download from https://acoustid.org/chromaprint and add to PATH
+#   macOS    → brew install chromaprint
+#   Linux    → apt install libchromaprint-tools
 
-# ─── Safe file deletion (NEW) ────────────────────────────────────
+# ─── Safe file deletion ──────────────────────────────────────────
 send2trash>=1.8.3

@@ -1,5 +1,6 @@
 import os
 import tkinter as tk
+import subprocess
 from tkinter import filedialog, scrolledtext, messagebox, ttk
 import threading
 from send2trash import send2trash
@@ -67,6 +68,12 @@ preview_image_ref  = None
 # HELPERS
 # ============================================================
 
+def open_file(path):
+    try:
+        os.startfile(path)   # Windows default open
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+
 def select_folder():
     folder = filedialog.askdirectory()
     if folder:
@@ -128,7 +135,7 @@ def render_summary_dashboard(summary):
         ]
         for emoji, label, value, color in cards:
             card = tk.Frame(dashboard_frame, bg=COLOR_PANEL2, padx=12, pady=8)
-            card.pack(side=tk.LEFT, padx=6, pady=4)
+            card.pack(side=tk.RIGHT, padx=6, pady=4)
             tk.Label(card, text=emoji, font=("Segoe UI", 18), bg=COLOR_PANEL2, fg=color).pack()
             tk.Label(card, text=value, font=("Segoe UI", 16, "bold"), bg=COLOR_PANEL2, fg=color).pack()
             tk.Label(card, text=label, font=FONT_SMALL, bg=COLOR_PANEL2, fg=COLOR_MUTED).pack()
@@ -197,7 +204,113 @@ def show_file_preview(path):
         tk.Label(preview_inner, text="🎵 Audio File",
                  font=FONT_BOLD, bg=COLOR_PANEL2, fg=COLOR_BLUE).pack(pady=20)
 
+def show_file_preview(path):
 
+    if not path or not os.path.exists(path):
+        return
+
+    meta = get_file_metadata(path)
+    ext  = meta["ext"]
+
+    # Create popup window
+    popup = tk.Toplevel(root)
+    popup.title("File Preview")
+    popup.geometry("500x500")
+    popup.configure(bg=COLOR_PANEL2)
+
+    container = tk.Frame(popup, bg=COLOR_PANEL2, padx=15, pady=15)
+    container.pack(fill=tk.BOTH, expand=True)
+
+    tk.Label(
+        container,
+        text="📋 File Preview",
+        font=FONT_HEADER,
+        bg=COLOR_PANEL2,
+        fg=COLOR_ACCENT2
+    ).pack(anchor="w", pady=(0,10))
+
+    info_frame = tk.Frame(container, bg=COLOR_PANEL2)
+    info_frame.pack(fill=tk.X, pady=(0,10))
+
+    def info_row(label,val):
+        row = tk.Frame(info_frame,bg=COLOR_PANEL2)
+        row.pack(fill=tk.X,pady=2)
+
+        tk.Label(
+            row,
+            text=label,
+            width=10,
+            anchor="w",
+            bg=COLOR_PANEL2,
+            fg=COLOR_MUTED
+        ).pack(side=tk.LEFT)
+
+        tk.Label(
+            row,
+            text=val,
+            anchor="w",
+            bg=COLOR_PANEL2,
+            fg=COLOR_FG,
+            wraplength=350
+        ).pack(side=tk.LEFT)
+
+    info_row("Name:",os.path.basename(path))
+    info_row("Size:",meta["size_str"])
+    info_row("Modified:",meta["modified"])
+    info_row("Type:",ext)
+
+    ttk.Separator(container,orient="horizontal").pack(fill=tk.X,pady=10)
+
+    # IMAGE PREVIEW
+    if ext in IMAGE_EXTENSIONS:
+
+        img = get_image_thumbnail(path,size=(400,300))
+
+        if img:
+            tk_img = ImageTk.PhotoImage(img)
+
+            lbl = tk.Label(container,image=tk_img,bg=COLOR_PANEL2)
+            lbl.image = tk_img
+            lbl.pack(pady=10)
+
+    # TEXT PREVIEW
+    elif ext in TEXT_EXTENSIONS:
+
+        from ai_engine import extract_text
+        snippet = extract_text(path)[:800]
+
+        txt = tk.Text(
+            container,
+            height=15,
+            bg=COLOR_BG,
+            fg=COLOR_FG,
+            font=("Consolas",9),
+            wrap=tk.WORD
+        )
+
+        txt.insert(tk.END,snippet)
+        txt.config(state=tk.DISABLED)
+        txt.pack(fill=tk.BOTH,expand=True)
+
+    # AUDIO
+    elif ext in AUDIO_EXTENSIONS:
+
+        tk.Label(
+            container,
+            text="🎵 Audio File",
+            font=FONT_HEADER,
+            bg=COLOR_PANEL2,
+            fg=COLOR_BLUE
+        ).pack(pady=30)
+
+    tk.Button(
+        container,
+        text="Close",
+        command=popup.destroy,
+        bg=COLOR_ACCENT,
+        fg="white",
+        relief=tk.FLAT
+    ).pack(pady=10)
 # ============================================================
 # CHECKBOX FILE ENTRY
 # ============================================================
@@ -215,14 +328,21 @@ def add_file_entry(path, color=COLOR_FG, indent=6, pre_check=False):
     btn = tk.Button(
         output,
         text=f"  {os.path.basename(path)}",
-        anchor="w", font=FONT_MONO,
-        fg=color, bg="#0a0a14",
-        activebackground="#1a1a2e", activeforeground=COLOR_ACCENT2,
-        relief=tk.FLAT, cursor="hand2",
-        command=lambda p=path: show_file_preview(p),
-    )
+        anchor="w",
+        font=FONT_MONO,
+        fg=color,
+        bg="#0a0a14",
+        activebackground="#1a1a2e",
+        activeforeground=COLOR_ACCENT2,
+        relief=tk.FLAT,
+        cursor="hand2"
+    )  
+
     btn.bind("<Enter>", lambda e, b=btn: b.config(fg=COLOR_ACCENT2))
     btn.bind("<Leave>", lambda e, b=btn, c=color: b.config(fg=c))
+
+    btn.bind("<Button-1>", lambda e, p=path: show_file_preview(p))
+    btn.bind("<Button-3>", lambda e, p=path: open_file(p))
 
     output.config(state=tk.NORMAL)
     output.insert(tk.END, " " * indent)
@@ -254,7 +374,8 @@ def delete_selected():
     errors = []
     for path in targets:
         try:
-            send2trash(path)
+            clean_path = os.path.normpath(path.replace("\\\\?\\", ""))
+            send2trash(clean_path)
             file_checkboxes.pop(path, None)
         except Exception as e:
             errors.append(f"{os.path.basename(path)}: {e}")
@@ -312,21 +433,35 @@ STAGE_COLORS = {
     5: COLOR_FG,
 }
 
-def _snap_to_stage(*_):
-    """Snap slider to nearest stage and update display."""
-    raw = threshold_var.get()
-    # Find nearest stage (1–5)
-    stage = min(THRESHOLD_STAGES, key=lambda s: abs(THRESHOLD_STAGES[s] - raw))
-    snapped = THRESHOLD_STAGES[stage]
-    # Avoid recursive callback loop
-    if abs(raw - snapped) > 0.001:
-        threshold_var.set(snapped)
-        return
-    threshold_display.set(f"Stage {stage}  ({snapped:.2f})")
-    threshold_warn.config(text=STAGE_LABELS[stage], fg=STAGE_COLORS[stage])
+def update_threshold_stage(val=None):
+    """Convert slider stage (1–5) to real threshold."""
+    stage = int(round(threshold_stage.get()))
 
-def _on_threshold_change(*_):
-    _snap_to_stage()
+    if stage < 1:
+        stage = 1
+    if stage > 5:
+        stage = 5
+
+    threshold_stage.set(stage)
+
+    threshold = THRESHOLD_STAGES[stage]
+    threshold_var.set(threshold)
+
+    threshold_display.set(f"Stage {stage} ({threshold:.2f})")
+
+    threshold_warn.config(
+        text=STAGE_LABELS[stage],
+        fg=STAGE_COLORS[stage]
+    )
+
+
+def update_threshold_visibility(*args):
+    mode = mode_var.get()
+
+    if mode == "DeepAI":
+        threshold_frame.pack(side=tk.LEFT)
+    else:
+        threshold_frame.pack_forget()
 
 
 # ============================================================
@@ -369,7 +504,7 @@ def _run(folder, mode, threshold):
 
     # ── STANDARD ──
     if mode == "Standard":
-        section("══════════════  STANDARD MODE: SHA-256 + TF-IDF  ══════════════")
+        section("══════════════  Exact + Same-format similarity  ══════════════")
         exact_dups, clusters, sim_reasons, summary, all_files = analyze_folder(
             folder, threshold=threshold, progress_callback=log)
 
@@ -401,7 +536,7 @@ def _run(folder, mode, threshold):
 
     # ── CROSS FORMAT ──
     elif mode == "Cross":
-        section("══════════  CROSS-FORMAT MODE: TF-IDF + pHash + Audio  ══════════")
+        section("══════════  Cross-format content similarity  ══════════")
         clusters, sim_reasons, summary, all_files = analyze_cross_format(
             folder, threshold=threshold, progress_callback=log)
 
@@ -426,7 +561,7 @@ def _run(folder, mode, threshold):
 
     # ── DEEP AI ──
     elif mode == "DeepAI":
-        section("══════════  DEEP AI MODE: Sentence Transformers + FAISS + CLIP  ══════════")
+        section("══════════  Semantic + Vision AI analysis  ══════════")
         log("🚀 Initialising Deep AI engine…")
         clusters, sim_scores, sim_reasons, summary, all_files = analyze_deep_ai(
             folder, threshold=threshold, progress_callback=log)
@@ -569,6 +704,10 @@ folder_label.pack(side=tk.LEFT)
 mode_frame = tk.Frame(root, bg=COLOR_PANEL, padx=14, pady=8)
 mode_frame.pack(fill=tk.X, pady=(2, 0))
 
+# ── DASHBOARD (right side of mode bar) ────────────────────────
+dashboard_frame = tk.Frame(mode_frame, bg=COLOR_PANEL)
+dashboard_frame.pack(side=tk.RIGHT, padx=20)
+
 tk.Label(mode_frame, text="Mode:", font=FONT_BOLD,
          bg=COLOR_PANEL, fg=COLOR_FG).pack(side=tk.LEFT, padx=(0, 12))
 
@@ -582,53 +721,101 @@ mode_buttons = []
 for label, value, tip, selbg in mode_configs:
     frm = tk.Frame(mode_frame, bg=COLOR_PANEL)
     frm.pack(side=tk.LEFT, padx=8)
-    rb = tk.Radiobutton(frm, text=label, variable=mode_var, value=value,
-                        font=FONT_MAIN, bg=COLOR_PANEL, fg=COLOR_FG,
-                        selectcolor=selbg, activebackground=COLOR_PANEL,
-                        activeforeground=COLOR_FG, cursor="hand2")
+    rb = tk.Radiobutton(
+        frm,
+        text=label,
+        variable=mode_var,
+        value=value,
+        command=update_threshold_visibility,
+        font=FONT_MAIN,
+        bg=COLOR_PANEL,
+        fg=COLOR_FG,
+        selectcolor=selbg,
+        activebackground=COLOR_PANEL,
+        activeforeground=COLOR_FG,
+        cursor="hand2",
+        )
     rb.pack()
     tk.Label(frm, text=tip, font=FONT_SMALL, bg=COLOR_PANEL, fg=COLOR_MUTED).pack()
     mode_buttons.append(rb)
 
-# Threshold
-tk.Label(mode_frame, text="  Similarity Threshold:",
+# ============================================================
+# THRESHOLD CONTROLS (Deep AI only)
+# ============================================================
+
+threshold_frame = tk.Frame(mode_frame, bg=COLOR_PANEL)
+
+tk.Label(threshold_frame, text="  Similarity Threshold:",
          font=FONT_SMALL, bg=COLOR_PANEL, fg=COLOR_MUTED).pack(side=tk.LEFT, padx=(20, 4))
 
-threshold_var     = tk.DoubleVar(value=0.65)   # default = Stage 5
-threshold_display = tk.StringVar(value="Stage 5  (0.65)")
+threshold_stage   = tk.IntVar(value=5)
+threshold_var     = tk.DoubleVar(value=0.65)
+threshold_display = tk.StringVar(value="Stage 5 (0.65)")
 
-threshold_slider = ttk.Scale(mode_frame, from_=0.20, to=0.65,
-                              orient=tk.HORIZONTAL, variable=threshold_var, length=160)
+threshold_slider = ttk.Scale(
+    threshold_frame,
+    from_=1,
+    to=5,
+    orient=tk.HORIZONTAL,
+    variable=threshold_stage,
+    length=160,
+    command=update_threshold_stage
+)
 threshold_slider.pack(side=tk.LEFT)
 
-threshold_val_lbl = tk.Label(mode_frame, textvariable=threshold_display,
-                              font=FONT_BOLD, bg=COLOR_PANEL, fg=COLOR_GOLD, width=16)
+threshold_val_lbl = tk.Label(
+    threshold_frame,
+    textvariable=threshold_display,
+    font=FONT_BOLD,
+    bg=COLOR_PANEL,
+    fg=COLOR_GOLD,
+    width=16
+)
 threshold_val_lbl.pack(side=tk.LEFT, padx=(4, 2))
 
-threshold_warn = tk.Label(mode_frame, text="Stage 5 — Strict, only close matches (default)",
-                           font=FONT_SMALL, bg=COLOR_PANEL, fg=COLOR_FG)
+threshold_warn = tk.Label(
+    threshold_frame,
+    text="Stage 5 — Strict, only close matches (default)",
+    font=FONT_SMALL,
+    bg=COLOR_PANEL,
+    fg=COLOR_FG
+)
 threshold_warn.pack(side=tk.LEFT, padx=6)
 
-threshold_var.trace_add("write", _on_threshold_change)
+threshold_frame.pack(side=tk.LEFT)
+update_threshold_stage()
+update_threshold_visibility()
+
+# Divider between controls and progress area
+divider = tk.Frame(root, bg=COLOR_DIVIDER, height=2)
+divider.pack(fill=tk.X, padx=20, pady=(6,6))
 
 # ── ACTION BUTTONS ────────────────────────────────────────────
 btn_row = tk.Frame(root, bg=COLOR_BG, pady=6)
 btn_row.pack(fill=tk.X, padx=20)
 
-run_btn = tk.Button(btn_row, text="▶  Run AI Analysis", command=run_analysis,
+# Center container
+btn_center = tk.Frame(btn_row, bg=COLOR_BG)
+btn_center.pack()
+
+run_btn = tk.Button(btn_center, text="▶  Run AI Analysis", command=run_analysis,
                     font=FONT_BOLD, bg=COLOR_GREEN, fg="#000000",
                     relief=tk.FLAT, padx=18, pady=5, cursor="hand2")
-run_btn.pack(side=tk.LEFT, padx=(0, 10))
+run_btn.pack(side=tk.LEFT, padx=12)
 
-delete_btn = tk.Button(btn_row, text="🗑️  Delete Selected", command=delete_selected,
+delete_btn = tk.Button(btn_center, text="🗑️  Delete Selected", command=delete_selected,
                        font=FONT_BOLD, bg=COLOR_RED, fg="white",
-                       relief=tk.FLAT, padx=14, pady=5, cursor="hand2")
-delete_btn.pack(side=tk.LEFT, padx=(0, 10))
+                       relief=tk.FLAT, padx=18, pady=5, cursor="hand2")
+delete_btn.pack(side=tk.LEFT, padx=12)
 
-export_btn = tk.Button(btn_row, text="💾  Export Report", command=export_report,
+export_btn = tk.Button(btn_center, text="💾  Export Report", command=export_report,
                        font=FONT_BOLD, bg=COLOR_GOLD, fg="#000000",
-                       relief=tk.FLAT, padx=14, pady=5, cursor="hand2")
-export_btn.pack(side=tk.LEFT)
+                       relief=tk.FLAT, padx=18, pady=5, cursor="hand2")
+export_btn.pack(side=tk.LEFT, padx=12)
+
+status_label = tk.Label(btn_row, text="✅  Ready",
+                        font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_GREEN)
+status_label.pack(side=tk.RIGHT)
 
 status_label = tk.Label(btn_row, text="✅  Ready",
                         font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_GREEN)
@@ -640,13 +827,10 @@ progress_bar.pack(pady=(0, 4))
 
 stage_frame = tk.Frame(root, bg=COLOR_BG)
 stage_frame.pack(fill=tk.X, padx=20, pady=(0, 2))
+
 for s in ["📂 Scanning", "🔐 Hashing", "📝 Text AI", "🖼️ Image AI", "🎵 Audio AI", "🔗 Clustering"]:
     tk.Label(stage_frame, text=s, font=FONT_SMALL,
              bg=COLOR_BG, fg=COLOR_MUTED, padx=8).pack(side=tk.LEFT)
-
-# ── DASHBOARD ─────────────────────────────────────────────────
-dashboard_frame = tk.Frame(root, bg=COLOR_BG)
-dashboard_frame.pack(fill=tk.X, padx=20, pady=(0, 4))
 
 # ── BODY: output + preview ────────────────────────────────────
 body_frame = tk.Frame(root, bg=COLOR_BG)
@@ -658,26 +842,6 @@ output = scrolledtext.ScrolledText(
     wrap=tk.WORD, relief=tk.FLAT, padx=10, pady=10,
 )
 output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-# Preview panel
-preview_frame = tk.Frame(body_frame, bg=COLOR_PANEL2, width=240)
-preview_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 0))
-preview_frame.pack_propagate(False)
-
-tk.Label(preview_frame, text="Click a file to preview",
-         font=FONT_SMALL, bg=COLOR_PANEL2, fg=COLOR_MUTED).pack(pady=6)
-ttk.Separator(preview_frame, orient="horizontal").pack(fill=tk.X)
-
-preview_canvas = tk.Canvas(preview_frame, bg=COLOR_PANEL2, bd=0, highlightthickness=0)
-preview_scroll = ttk.Scrollbar(preview_frame, orient="vertical", command=preview_canvas.yview)
-preview_canvas.configure(yscrollcommand=preview_scroll.set)
-preview_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-preview_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-preview_inner = tk.Frame(preview_canvas, bg=COLOR_PANEL2, padx=10, pady=10)
-preview_canvas.create_window((0, 0), window=preview_inner, anchor="nw")
-preview_inner.bind("<Configure>",
-                   lambda e: preview_canvas.configure(scrollregion=preview_canvas.bbox("all")))
 
 # ── TEXT TAGS ─────────────────────────────────────────────────
 output.tag_config("section", foreground=COLOR_GOLD,   font=FONT_MONO_B)

@@ -121,22 +121,81 @@ def get_image_thumbnail(path, size=(120, 120)):
 # ============================================================
 
 def audio_fingerprint(path):
+    """
+    Uses Chromaprint (acoustid) for robust audio fingerprinting.
+    Falls back to enhanced MFCC if not available.
+    """
+    # --- Method 1: Chromaprint (best — identifies same recordings) ---
+    try:
+        import acoustid
+        import numpy as np
+        duration, fingerprint = acoustid.fingerprint_file(path)
+        # Convert fingerprint string to a numeric vector
+        fp_bytes = fingerprint.encode("utf-8")
+        fp_array = np.frombuffer(fp_bytes, dtype=np.uint8).astype(np.float32)
+        # Pad/truncate to fixed length for comparison
+        fixed_len = 500
+        if len(fp_array) >= fixed_len:
+            fp_array = fp_array[:fixed_len]
+        else:
+            fp_array = np.pad(fp_array, (0, fixed_len - len(fp_array)))
+        return ("chromaprint", fingerprint, duration, fp_array)
+    except Exception:
+        pass
+
+    # --- Method 2: Enhanced MFCC fallback ---
     try:
         import librosa
         import numpy as np
-        y, sr = librosa.load(path, sr=None, mono=True, duration=30)
-        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=20)
-        return mfcc.mean(axis=1)
+        y, sr  = librosa.load(path, sr=22050, mono=True, duration=60)
+        mfcc   = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=20)
+        chroma = librosa.feature.chroma_stft(y=y, sr=sr)
+        zcr    = librosa.feature.zero_crossing_rate(y)
+        rms    = librosa.feature.rms(y=y)
+        tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+        feat = np.concatenate([
+            mfcc.mean(axis=1), mfcc.std(axis=1),
+            chroma.mean(axis=1), chroma.std(axis=1),
+            zcr.mean(axis=1), rms.mean(axis=1),
+            np.array([float(tempo)])
+        ])
+        return ("mfcc", None, None, feat)
     except Exception:
         return None
 
 
 def audio_similarity(fp1, fp2):
+    """
+    Compares two fingerprints. Uses Chromaprint bit-error rate if available,
+    otherwise cosine similarity with a strict threshold.
+    """
     try:
         import numpy as np
-        n1 = fp1 / (np.linalg.norm(fp1) + 1e-10)
-        n2 = fp2 / (np.linalg.norm(fp2) + 1e-10)
-        return float(np.dot(n1, n2))
+
+        method1, raw1, dur1, vec1 = fp1
+        method2, raw2, dur2, vec2 = fp2
+
+        # Chromaprint: compare raw fingerprint strings directly
+        if method1 == "chromaprint" and method2 == "chromaprint":
+            try:
+                import acoustid
+                # acoustid compare returns 0.0–1.0 match score
+                score = acoustid.compare_fingerprints(
+                    (dur1, raw1), (dur2, raw2)
+                )
+                return float(score)
+            except Exception:
+                pass  # fall through to vector comparison
+
+        # Vector cosine similarity (MFCC fallback)
+        n1 = vec1 / (np.linalg.norm(vec1) + 1e-10)
+        n2 = vec2 / (np.linalg.norm(vec2) + 1e-10)
+        score = float(np.dot(n1, n2))
+        # MFCC cosine is too generous — rescale to penalise non-identical files
+        # Map 0.95–1.0 → 0.5–1.0, everything below 0.95 → near 0
+        score = max(0.0, (score - 0.95) / 0.05)
+        return score
+
     except Exception:
         return 0.0
 
@@ -406,14 +465,29 @@ def analyze_folder(folder, threshold=0.65, progress_callback=None):
     exact_duplicates = [g for g in hash_groups.values() if len(g) > 1]
 
     _log("📝 Extracting text and computing TF-IDF similarity...")
-    text_files = [f for f in files if os.path.splitext(f)[1].lower() in TEXT_EXTENSIONS]
-    texts, valid = [], []
-    for f in text_files:
-        txt = extract_text(f)
-        print(f"[DEBUG] {os.path.basename(f)} → {len(txt)} chars")
-        if len(txt) > 5:
-            texts.append(txt)
-            valid.append(f)
+    # Group text files by extension (Standard mode = same format only)
+    text_groups = defaultdict(list)
+
+    for f in files:
+        ext = os.path.splitext(f)[1].lower()
+        if ext in TEXT_EXTENSIONS:
+            text_groups[ext].append(f)
+
+    texts = []
+    valid = []
+
+    for ext, group in text_groups.items():
+
+        if len(group) < 2:
+            continue
+
+        for f in group:
+            txt = extract_text(f)
+            print(f"[DEBUG] {os.path.basename(f)} → {len(txt)} chars")
+
+            if len(txt) > 5:
+                texts.append(txt)
+                valid.append(f)
 
     _log(f"📝 {len(valid)} text files ready for comparison (threshold={threshold:.2f})...")
 
@@ -428,6 +502,13 @@ def analyze_folder(folder, threshold=0.65, progress_callback=None):
             mat = cosine_similarity(vec.fit_transform(texts))
         for i in range(len(valid)):
             for j in range(i + 1, len(valid)):
+
+            # Only compare same file types in Standard mode
+                ext1 = os.path.splitext(valid[i])[1].lower()
+                ext2 = os.path.splitext(valid[j])[1].lower()
+
+                if ext1 != ext2:
+                    continue
                 score = float(mat[i][j])
                 print(f"[DEBUG] TF-IDF {os.path.basename(valid[i])} <-> {os.path.basename(valid[j])}: {score:.4f} (need>={threshold:.2f})")
                 if score >= threshold:
@@ -491,7 +572,7 @@ def analyze_cross_format(folder, threshold=0.65, progress_callback=None):
             for j in range(i + 1, len(valid)):
                 score = float(mat[i][j])
                 print(f"[DEBUG] CrossFmt {os.path.basename(valid[i])} <-> {os.path.basename(valid[j])}: {score:.4f} (need>={threshold:.2f})")
-                if score >= threshold:
+                if score >= max(threshold, 0.97):
                     near_pairs.append((valid[i], valid[j]))
                     sim_reasons[(valid[i], valid[j])] = f"Text similarity {int(score * 100)}%"
 
@@ -504,7 +585,8 @@ def analyze_cross_format(folder, threshold=0.65, progress_callback=None):
             h2 = hashes.get(image_files[j])
             if h1 and h2:
                 score = 1 - (h1 - h2) / 64
-                if score >= threshold:
+                AUDIO_SIMILARITY_CUTOFF = 0.85  # 0.85+ on Chromaprint = same recording
+                if score >= AUDIO_SIMILARITY_CUTOFF:
                     near_pairs.append((image_files[i], image_files[j]))
                     sim_reasons[(image_files[i], image_files[j])] = f"Image pHash {int(score * 100)}%"
 
